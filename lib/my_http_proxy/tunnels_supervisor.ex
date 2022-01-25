@@ -12,7 +12,7 @@ defmodule MyHttpProxy.TunnelsSupervisor do
     DynamicSupervisor.init(strategy: :one_for_one)
   end
 
-  def start_child(target_host, target_port, client_socket) do
-    DynamicSupervisor.start_child(__MODULE__, {Tunnel, {target_host, target_port, client_socket}})
+  def start_child(downstream_socket) do
+    DynamicSupervisor.start_child(__MODULE__, {Tunnel, downstream_socket})
   end
 end
