@@ -10,5 +10,8 @@
 
 ## TODO
 
-- [ ] 支持代理链
+- [x] 支持监听 IP、端口配置
+- [x] 支持代理链
 - [ ] 支持多路 accept，从而减少 TCP 握手的堆积
+- [ ] 支持 basic authorization
+- [ ] 支持白名单

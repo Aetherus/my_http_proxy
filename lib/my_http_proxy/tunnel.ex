@@ -20,19 +20,19 @@ defmodule MyHttpProxy.Tunnel do
     end
   end
 
-  def start_link(downstream_socket) do
-    GenServer.start_link(__MODULE__, downstream_socket)
+  def start_link({_downstream_socket, _upstream_proxy} = arg) do
+    GenServer.start_link(__MODULE__, arg)
   end
 
   @impl true
-  def init(downstream_socket) do
+  def init(initial_state) do
     Process.flag(:trap_exit, true)
-    {:ok, downstream_socket, {:continue, :handshake}}
+    {:ok, initial_state, {:continue, :handshake}}
   end
 
   # 下游和代理握手
   @impl true
-  def handle_continue(:handshake, downstream_socket) do
+  def handle_continue(:handshake, {downstream_socket, upstream_proxy}) do
     # 读取整个 HTTP CONNECT 请求，并获取请求行
     {:ok, request} = :gen_tcp.recv(downstream_socket, 0)
     [request_line, _headers_and_body] = String.split(request, "\r\n", parts: 2)
@@ -41,7 +41,7 @@ defmodule MyHttpProxy.Tunnel do
     # request_line 应是如下字符串：
     # CONNECT www.google.com:443 HTTP/1.1
     {:ok, target_host, target_port, protocol} = parse_request_line(request_line)
-    {:ok, upstream_socket} = connect_to_upstream(target_host, target_port)
+    {:ok, upstream_socket} = connect_to_upstream(target_host, target_port, upstream_proxy)
     log("Tunnel established: $from <~> $to", downstream_socket, upstream_socket)
 
     # 发送 CONNECT 请求的响应给下游
@@ -115,9 +115,42 @@ defmodule MyHttpProxy.Tunnel do
     {:ok, target_host, target_port, protocol}
   end
 
-  defp connect_to_upstream(target_host, target_port) do
-    # TODO: 如果代理服务器本身配置了 HTTP 代理，则连接上游 HTTP 代理，否则连接目标服务器
-    :gen_tcp.connect(target_host, target_port, active: true, mode: :binary, keepalive: true)
+  defp connect_to_upstream(target_host, target_port, upstream_proxy) do
+    # 如果代理服务器本身配置了 HTTP 代理，则连接上游 HTTP 代理，否则连接目标服务器
+    if upstream_proxy do
+      connect_to_upstream_proxy(upstream_proxy, target_host, target_port)
+    else
+      :gen_tcp.connect(target_host, target_port, active: true, mode: :binary, keepalive: true)
+    end
+  end
+
+  defp connect_to_upstream_proxy(upstream_proxy, target_host, target_port) do
+    upstream_host = Keyword.fetch!(upstream_proxy, :host)
+    upstream_port = Keyword.fetch!(upstream_proxy, :port)
+    with {:ok, upstream_socket} <- :gen_tcp.connect(upstream_host, upstream_port, active: false, mode: :binary, keepalive: true),
+         :ok <- :gen_tcp.send(upstream_socket, build_handshake_request(target_host, target_port)),
+         {:ok, response} <- :gen_tcp.recv(upstream_socket, 0),
+         :ok <- validate_handshake_response(response),
+         :ok <- :inet.setopts(upstream_socket, active: true),
+         do: {:ok, upstream_socket}
+  end
+
+  defp build_handshake_request(target_host, target_port) do
+    """
+    CONNECT #{target_host}:#{target_port} HTTP/1.0
+    Host: #{target_host}:#{target_port}
+
+    """
+    |> String.replace("\n", "\r\n", global: true)
+  end
+
+  defp validate_handshake_response(response) do
+    with ["HTTP/1.0 200 OK", headers_and_body] <- String.split(response, "\r\n", parts: 2),
+         false <- headers_and_body =~ ~r/content-type|transfer-encoding/im do
+      :ok
+    else
+      _ -> {:error, :handshake_failure}
+    end
   end
 
   defp send_handshake_ok_response(downstream_socket, protocol) do

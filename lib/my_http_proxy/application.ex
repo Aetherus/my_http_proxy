@@ -10,9 +10,8 @@ defmodule MyHttpProxy.Application do
     children = [
       # Starts a worker by calling: MyHttpProxy.Worker.start_link(arg)
       # {MyHttpProxy.Worker, arg}
-      {Task.Supervisor, name: MyHttpProxy.ClientsSupervisor},
       MyHttpProxy.TunnelsSupervisor,
-      MyHttpProxy.Server
+      {MyHttpProxy.Server, Application.get_all_env(:my_http_proxy)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
