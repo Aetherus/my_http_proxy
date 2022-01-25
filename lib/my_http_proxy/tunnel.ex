@@ -81,7 +81,7 @@ defmodule MyHttpProxy.Tunnel do
   # 把上游发过来的 TCP 包原样发给下游
   def handle_info({:tcp, upstream_socket, data}, {downstream_socket, upstream_socket} = state) do
     if downstream_socket do
-      log("Sending #{byte_size(data)} bytes: $from -> $to", upstream_socket, downstream_socket)
+      log("Sending #{byte_size(data)} bytes: $to <- $from", upstream_socket, downstream_socket)
       :ok = :gen_tcp.send(downstream_socket, data)
     end
     {:noreply, state}
