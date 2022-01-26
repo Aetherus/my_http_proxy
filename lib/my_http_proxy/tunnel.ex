@@ -61,17 +61,6 @@ defmodule MyHttpProxy.Tunnel do
     end
   end
 
-  # 如果上下游的 socket 都关闭了，则销毁隧道
-  def handle_continue(:maybe_exit, {nil, nil} = state) do
-    Logger.debug("Tunnel is closed.")
-    {:stop, :normal, state}
-  end
-
-  # 如果上下游的 socket 只要有一个没有关闭，则不销毁隧道
-  def handle_continue(:maybe_exit, state) do
-    {:noreply, state}
-  end
-
   @impl true
 
   # 把下游发过来的 TCP 包原样发给上游
@@ -92,16 +81,10 @@ defmodule MyHttpProxy.Tunnel do
     {:noreply, state}
   end
 
-  # 下游 TCP socket 关闭
-  def handle_info({:tcp_closed, downstream_socket}, {downstream_socket, upstream_socket}) do
-    Logger.debug("Downstream socket is closed.")
-    {:noreply, {nil, upstream_socket}, {:continue, :maybe_exit}}
-  end
-
-  # 上游 TCP socket 关闭
-  def handle_info({:tcp_closed, upstream_socket}, {downstream_socket, upstream_socket}) do
-    Logger.debug("Upstream socket is closed.")
-    {:noreply, {downstream_socket, nil}, {:continue, :maybe_exit}}
+  # 任何一端关闭 TCP 连接时，关闭整条隧道
+  def handle_info({:tcp_closed, _}, state) do
+    Logger.debug("Tunnel is closed.")
+    {:stop, :normal, state}
   end
 
   def handle_info(_, state), do: state
