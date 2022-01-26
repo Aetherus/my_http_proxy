@@ -41,19 +41,24 @@ defmodule MyHttpProxy.Tunnel do
     # request_line 应是如下字符串：
     # CONNECT www.google.com:443 HTTP/1.1
     {:ok, target_host, target_port, protocol} = parse_request_line(request_line)
-    {:ok, upstream_socket} = connect_to_upstream(target_host, target_port, upstream_proxy)
-    log("Tunnel established: $from <~> $to", downstream_socket, upstream_socket)
+    case connect_to_upstream(target_host, target_port, upstream_proxy) do
+      {:error, reason} ->
+        send_handshake_error_response(downstream_socket, reason, protocol)
+        {:stop, :normal, {downstream_socket, nil}}
+      {:ok, upstream_socket} ->
+        log("Tunnel established: $from <~> $to", downstream_socket, upstream_socket)
 
-    # 发送 CONNECT 请求的响应给下游
-    :ok = send_handshake_ok_response(downstream_socket, protocol)
+        # 发送 CONNECT 请求的响应给下游
+        :ok = send_handshake_ok_response(downstream_socket, protocol)
 
-    # 把下游 socket 的模式设为 active，
-    # 从而可以将它收到的数据包和 socket 关闭事件
-    # 转化为消息发给它的 controlling process
-    # （在这里是当前 GenServer 进程）
-    :inet.setopts(downstream_socket, active: true)
+        # 把下游 socket 的模式设为 active，
+        # 从而可以将它收到的数据包和 socket 关闭事件
+        # 转化为消息发给它的 controlling process
+        # （在这里是当前 GenServer 进程）
+        :ok = :inet.setopts(downstream_socket, active: true)
 
-    {:noreply, {downstream_socket, upstream_socket}}
+        {:noreply, {downstream_socket, upstream_socket}}
+    end
   end
 
   # 如果上下游的 socket 都关闭了，则销毁隧道
@@ -154,8 +159,13 @@ defmodule MyHttpProxy.Tunnel do
   end
 
   defp send_handshake_ok_response(downstream_socket, protocol) do
-    Logger.debug("Sending response to CONNECT request ...")
+    Logger.debug("Sending 200 response to CONNECT request ...")
     :ok = :gen_tcp.send(downstream_socket, build_handshake_ok_response(protocol))
+  end
+
+  defp send_handshake_error_response(downstream_socket, reason, protocol) do
+    Logger.debug("Sending 502 response to CONNECT request ...")
+    :ok = :gen_tcp.send(downstream_socket, build_handshake_error_response(reason, protocol))
   end
 
   defp build_handshake_ok_response(protocol) do
@@ -167,6 +177,18 @@ defmodule MyHttpProxy.Tunnel do
     #{protocol} 200 OK
     Connection: close
 
+    """
+    |> String.replace("\n", "\r\n", global: true)
+  end
+
+  defp build_handshake_error_response(reason, protocol) do
+    """
+    #{protocol} 502 Bad Gateway
+    Content-Type: text/plain; charset=utf-8
+    Content-Length: #{byte_size(to_string(reason))}
+    Connection: close
+
+    #{reason}
     """
     |> String.replace("\n", "\r\n", global: true)
   end
