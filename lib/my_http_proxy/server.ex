@@ -3,28 +3,27 @@ defmodule MyHttpProxy.Server do
 
   use GenServer
 
-  alias MyHttpProxy.TunnelsSupervisor
-
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  def get_socket do
+    GenServer.call(__MODULE__, :get_socket)
   end
 
   @impl true
   def init(opts) do
-    ip = opts[:ip] || {0, 0, 0, 0}
+    ip = opts[:ip] || {127, 0, 0, 1}
     port = opts[:port] || 1080
     with {:ok, server_socket} <- listen(ip, port) do
       Logger.debug("HTTP Proxy server is listening on #{:inet.ntoa(ip)}:#{port}.")
-      {:ok, server_socket, {:continue, {:accept, opts}}}
+      {:ok, server_socket}
     end
   end
 
   @impl true
-  def handle_continue({:accept, opts}, server_socket) do
-    with {:ok, downstream_socket} <- :gen_tcp.accept(server_socket, :infinity),
-         {:ok, tunnel} <- TunnelsSupervisor.start_child(downstream_socket, opts[:upstream_proxy]),
-         :ok <- :gen_tcp.controlling_process(downstream_socket, tunnel),
-         do: {:noreply, server_socket, {:continue, {:accept, opts}}}
+  def handle_call(:get_socket, _from, server_socket) do
+    {:reply, server_socket, server_socket}
   end
 
   defp listen(ip, port) do

@@ -11,7 +11,7 @@ defmodule MyHttpProxy.Application do
       # Starts a worker by calling: MyHttpProxy.Worker.start_link(arg)
       # {MyHttpProxy.Worker, arg}
       MyHttpProxy.TunnelsSupervisor,
-      {MyHttpProxy.Server, Application.get_all_env(:my_http_proxy)}
+      {MyHttpProxy.ServerSupervisor, Application.get_all_env(:my_http_proxy)}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

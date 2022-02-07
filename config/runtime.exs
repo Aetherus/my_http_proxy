@@ -66,7 +66,11 @@ upstream_proxy =
   parse_host_and_port.(System.get_env("HTTP_PROXY") || System.get_env("ALL_PROXY"))
 
 config :my_http_proxy,
-  ip: listen_ip,
-  port: listen_port,
-  acceptors: acceptors,
-  upstream_proxy: upstream_proxy
+  server: [
+    ip: listen_ip,
+    port: listen_port,
+  ],
+  acceptors: [
+    count: acceptors,
+    upstream_proxy: upstream_proxy
+  ]
