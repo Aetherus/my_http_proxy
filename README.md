@@ -11,7 +11,7 @@
 
 ### MY_HTTP_PROXY_PORT
 
-当前代理服务器监听的 IP，默认 1080。
+当前代理服务器监听的端口，默认 1080。
 
 ## 上游代理设置
 
@@ -20,7 +20,7 @@
 
 ## 代码阅读指南
 
-- 核心模块是 `MyHttpProxy.Server` 和 `MyHttpProxy.Tunnel`
+- 核心模块是 `MyHttpProxy.Server`、 `MyHttpProxy.Acceptor` 和 `MyHttpProxy.Tunnel`
 - 阅读代码前建议先了解一下 Erlang 的 gen_tcp 模块，尤其是 active mode 和 controlling process 的关系
 - 可以适当了解一下 Erlang 的 inet 模块，不了解也没关系
 

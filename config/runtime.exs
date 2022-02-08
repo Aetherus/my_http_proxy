@@ -73,4 +73,4 @@ config :my_http_proxy,
   tunnels: [
     upstream_proxy: upstream_proxy
   ],
-  acceptors: 10
+  acceptors: acceptors
