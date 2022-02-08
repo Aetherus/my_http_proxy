@@ -70,7 +70,7 @@ config :my_http_proxy,
     ip: listen_ip,
     port: listen_port,
   ],
-  acceptors: [
-    count: acceptors,
+  tunnels: [
     upstream_proxy: upstream_proxy
-  ]
+  ],
+  acceptors: 10

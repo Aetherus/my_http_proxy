@@ -20,7 +20,7 @@ defmodule MyHttpProxy.Tunnel do
     end
   end
 
-  def start_link({_downstream_socket, _upstream_proxy} = arg) do
+  def start_link({_downstream_socket, _config} = arg) do
     GenServer.start_link(__MODULE__, arg)
   end
 
@@ -32,7 +32,7 @@ defmodule MyHttpProxy.Tunnel do
 
   # 下游和代理握手
   @impl true
-  def handle_continue(:handshake, {downstream_socket, upstream_proxy}) do
+  def handle_continue(:handshake, {downstream_socket, config}) do
     # 读取整个 HTTP CONNECT 请求，并获取请求行
     {:ok, request} = :gen_tcp.recv(downstream_socket, 0)
     [request_line, _headers_and_body] = String.split(request, "\r\n", parts: 2)
@@ -41,7 +41,7 @@ defmodule MyHttpProxy.Tunnel do
     # request_line 应是如下字符串：
     # CONNECT www.google.com:443 HTTP/1.1
     {:ok, target_host, target_port, protocol} = parse_request_line(request_line)
-    case connect_to_upstream(target_host, target_port, upstream_proxy) do
+    case connect_to_upstream(target_host, target_port, config[:upstream_proxy]) do
       {:error, reason} ->
         send_handshake_error_response(downstream_socket, reason, protocol)
         {:stop, :normal, {downstream_socket, nil}}

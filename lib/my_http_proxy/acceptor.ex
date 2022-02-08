@@ -3,21 +3,25 @@ defmodule MyHttpProxy.Acceptor do
 
   alias MyHttpProxy.{Server, TunnelsSupervisor}
 
-  def start_link(upstream_proxy) do
-    GenServer.start_link(__MODULE__, upstream_proxy)
+  def start_link() do
+    GenServer.start_link(__MODULE__, [])
   end
 
   @impl true
-  def init(upstream_proxy) do
-    {:ok, upstream_proxy, {:continue, :accept}}
+  def init(_) do
+    {:ok, [], {:continue, :accept}}
   end
 
   @impl true
-  def handle_continue(:accept, upstream_proxy) do
+  def handle_continue(:accept, _) do
     with server_socket <- Server.get_socket(),
          {:ok, downstream_socket} <- :gen_tcp.accept(server_socket, :infinity),
-         {:ok, tunnel} <- TunnelsSupervisor.start_child(downstream_socket, upstream_proxy),
+         {:ok, tunnel} <- TunnelsSupervisor.start_child(downstream_socket, tunnel_config()),
          :ok <- :gen_tcp.controlling_process(downstream_socket, tunnel),
          do: {:noreply, server_socket, {:continue, :accept}}
+  end
+
+  defp tunnel_config do
+    Application.get_env(:my_http_proxy, :tunnels)
   end
 end

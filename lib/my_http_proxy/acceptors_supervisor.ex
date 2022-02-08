@@ -3,18 +3,16 @@ defmodule MyHttpProxy.AcceptorsSupervisor do
 
   alias MyHttpProxy.Acceptor
 
-  def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(acceptors_count) do
+    Supervisor.start_link(__MODULE__, acceptors_count, name: __MODULE__)
   end
 
   @impl true
-  def init(opts) do
-    acceptors_count = opts[:count] || 10
-    upstream_proxy = opts[:upstream_proxy]
+  def init(acceptors_count) do
     children = Enum.map(1..acceptors_count, fn n ->
       %{
         id: {Acceptor, n},
-        start: {Acceptor, :start_link, [upstream_proxy]},
+        start: {Acceptor, :start_link, []},
         type: :worker
       }
     end)

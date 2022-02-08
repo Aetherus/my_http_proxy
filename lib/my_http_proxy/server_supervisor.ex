@@ -11,7 +11,7 @@ defmodule MyHttpProxy.ServerSupervisor do
   def init(opts) do
     children = [
       {Server, opts[:server] || []},
-      {AcceptorsSupervisor, opts[:acceptors] || []}
+      {AcceptorsSupervisor, opts[:acceptors] || 1}
     ]
     Supervisor.init(children, strategy: :rest_for_one)
   end
